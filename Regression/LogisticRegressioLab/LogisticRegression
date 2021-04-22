@@ -1,0 +1,113 @@
+#just like linear regression, but you are trying to predict a classification value. Binary like True/False or multiple classes like 1,2,3
+#independent variables should be continuous
+#chance of being in each class is predicted. Providing a prediction on which class they will be and how likely that outcome is.
+#
+
+import pandas as pd
+import pylab as pl
+import numpy as np
+import scipy.optimize as opt
+from sklearn import preprocessing
+import matplotlib.pyplot as plt
+
+churn_df = pd.read_csv("ChurnData.csv")
+print(churn_df.head())
+print('number of (rows,columns) in data frame:',churn_df.shape)
+
+X = np.asarray(churn_df[['tenure', 'age', 'address', 'income', 'ed', 'employ', 'equip' ]])
+y = np.asarray(churn_df['churn'])
+
+from sklearn import preprocessing
+X = preprocessing.StandardScaler().fit(X).transform(X) # normalise data
+#print(X[0:5])
+
+from sklearn.model_selection import train_test_split #create training and test data sets
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.2, random_state=4)
+print ('\nTrain set:', X_train.shape,  y_train.shape)
+print ('Test set:', X_test.shape,  y_test.shape)
+
+#‘newton-cg’, ‘lbfgs’, ‘liblinear’, ‘sag’ are types of numeric optimiser
+# sklearn is using liblinear,
+solver1 = input('\nwhich solver would you like to use? \n [1] "liblinear"\n [2] "lbfgs"\n [3] "newton-cg"\n [4] "sag" \n')
+if solver1 == '1':
+    solver1 = 'liblinear'
+elif solver1 == '2':
+    solver1 = 'lbfgs'
+elif solver1 == '3':
+    solver1 = 'newton-cg'
+elif solver1 == '4':
+    solver1 = 'sag'
+
+
+
+from sklearn.linear_model import LogisticRegression #create LR model
+LR = LogisticRegression(C=0.01, solver=solver1).fit(X_train,y_train)
+print('\nLR', LR)
+
+from sklearn.metrics import confusion_matrix
+yhat = LR.predict(X_test)
+print('\nyhat', yhat)
+print(len(yhat))
+
+#predict_proba returns estimates for all classes, ordered by the label of classes.
+# So, the first column is the probability of class 0, P(Y=0|X), and second column is probability of class 1, P(Y=1|X):
+yhat_prob = LR.predict_proba(X_test)
+print('\nyhat_prob\n', yhat_prob)
+
+#now we have to evaluate the accuracy of the model, there are several tools to do this.
+#jaccard index/score is the one with th even diagram,
+#if 'true values' overlaps entirely with 'predicted values' Jaccard index=1
+from sklearn.metrics import jaccard_score
+print('\njaccard_score' ,jaccard_score(y_test, yhat,pos_label=0))
+
+#another useful tool is confusion matrix
+from sklearn.metrics import classification_report, confusion_matrix
+import itertools
+
+confusion_m=confusion_matrix(y_test, yhat, labels=[1,0])
+
+
+def plot_confusion_matrix(cm, classes,
+                          normalize=False,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+    """
+    This function prints and plots the confusion matrix.
+    Normalization can be applied by setting `normalize=True`.
+    """
+    if normalize:
+        cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+        print("Normalized confusion matrix")
+    else:
+        print('Confusion matrix, without normalization')
+
+    print(cm)
+
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+#next part puts lables in each section of the plot
+    fmt = '.2f' if normalize else 'd'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])): #.product(A,B) does a cartesian product on A and B, producing an iterable
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    print(range(cm.shape[0]), range(cm.shape[1]))
+    plt.show()
+title = f'Confusion matrix using {solver1} solver'
+plot_confusion_matrix(confusion_m, classes=['churn=1','churn=0'],normalize= False,  title=title)
+print (classification_report(y_test, yhat))
+
+from sklearn.metrics import log_loss
+print('log loss: ', log_loss(y_test, yhat_prob))
+
+#posible extension: add the ability to use all the solvers and then compare them
+# (or at least have the information for each solver's model displayed simultaneasly for a user to compare).
